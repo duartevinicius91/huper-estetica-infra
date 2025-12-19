@@ -15,15 +15,27 @@ job "huper-estetica-front" {
       driver = "docker"
 
       config {
-        image = "{{ env "DOCKER_HUB_USERNAME" | default "huperdigital" }}/huper-estetica-front:{{ env "VERSION" | default "latest" }}"
+        image = "{{ if env "DOCKER_HUB_USERNAME" }}{{ env "DOCKER_HUB_USERNAME" }}{{ else }}huperdigital{{ end }}/huper-estetica-front:{{ if env "VERSION" }}{{ env "VERSION" }}{{ else }}latest{{ end }}"
         ports = ["http"]
       }
 
       template {
         data = <<EOH
-DOCKER_HUB_USERNAME="{{ env "DOCKER_HUB_USERNAME" | default "huperdigital" }}"
-VERSION="{{ env "VERSION" | default "latest" }}"
-API_URL="{{ env "API_URL" | default "http://localhost:8080/api" }}"
+{{- if env "DOCKER_HUB_USERNAME" }}
+DOCKER_HUB_USERNAME="{{ env "DOCKER_HUB_USERNAME" }}"
+{{- else }}
+DOCKER_HUB_USERNAME="huperdigital"
+{{- end }}
+{{- if env "VERSION" }}
+VERSION="{{ env "VERSION" }}"
+{{- else }}
+VERSION="latest"
+{{- end }}
+{{- if env "API_URL" }}
+API_URL="{{ env "API_URL" }}"
+{{- else }}
+API_URL="http://localhost:8080/api"
+{{- end }}
 EOH
         destination = "secrets/env"
         env         = true

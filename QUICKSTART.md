@@ -81,11 +81,15 @@ POSTGRES_PASSWORD=sua_senha
 
 ### 3. Configurar Volumes Host
 
-Antes de fazer deploy, configure os volumes host no Nomad:
+Antes de fazer deploy, configure os volumes host no arquivo de configuração do Nomad:
 
-**Opção 1: Via arquivo de configuração (Recomendado)**
+**Importante:** Volumes do tipo `host` devem ser configurados no arquivo `/etc/nomad.d/nomad.hcl`. Eles não podem ser registrados via CLI.
+
 ```bash
-# Editar /etc/nomad.d/nomad.hcl e adicionar na seção client:
+# 1. Editar /etc/nomad.d/nomad.hcl e adicionar na seção client:
+sudo nano /etc/nomad.d/nomad.hcl
+
+# Adicionar:
 client {
   enabled = true
   
@@ -100,18 +104,15 @@ client {
   }
 }
 
-# Criar diretórios
+# 2. Criar diretórios
 sudo mkdir -p /opt/nomad/volumes/keycloak_data
 sudo mkdir -p /opt/nomad/volumes/ollama_data
 
-# Reiniciar Nomad
+# 3. Reiniciar Nomad
 sudo systemctl restart nomad
-```
 
-**Opção 2: Registrar volumes via CLI**
-```bash
-nomad volume register volumes/keycloak_data.hcl
-nomad volume register volumes/ollama_data.hcl
+# 4. Verificar configuração
+nomad node status -self
 ```
 
 ### 4. Deploy da Infraestrutura
@@ -199,10 +200,13 @@ Certifique-se de configurar no `.env`:
    sudo systemctl restart nomad
    ```
 
-2. **Ou registrar volumes via CLI:**
+2. **Verificar se a configuração foi aplicada:**
    ```bash
-   nomad volume register volumes/keycloak_data.hcl
-   nomad volume register volumes/ollama_data.hcl
+   # Verificar status do nó
+   nomad node status -self
+   
+   # Verificar logs do Nomad
+   sudo journalctl -u nomad -n 50
    ```
 
 **Erro: "Cannot connect to Nomad" ou "connection refused"**

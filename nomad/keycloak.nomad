@@ -36,8 +36,16 @@ job "keycloak" {
 
       template {
         data = <<EOH
-KC_BOOTSTRAP_ADMIN_USERNAME="{{ env "KEYCLOAK_ADMIN_USERNAME" | default "admin" }}"
-KC_BOOTSTRAP_ADMIN_PASSWORD="{{ env "KEYCLOAK_ADMIN_PASSWORD" | default "admin" }}"
+{{- if env "KEYCLOAK_ADMIN_USERNAME" }}
+KC_BOOTSTRAP_ADMIN_USERNAME="{{ env "KEYCLOAK_ADMIN_USERNAME" }}"
+{{- else }}
+KC_BOOTSTRAP_ADMIN_USERNAME="admin"
+{{- end }}
+{{- if env "KEYCLOAK_ADMIN_PASSWORD" }}
+KC_BOOTSTRAP_ADMIN_PASSWORD="{{ env "KEYCLOAK_ADMIN_PASSWORD" }}"
+{{- else }}
+KC_BOOTSTRAP_ADMIN_PASSWORD="admin"
+{{- end }}
 EOH
         destination = "secrets/env"
         env         = true

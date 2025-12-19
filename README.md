@@ -127,9 +127,6 @@ huper-estetica-infra/
 │   └── huper-estetica-front.nomad  # Aplicação (deploy via pipeline do serviço)
 ├── nomad.service            # Arquivo systemd para rodar Nomad como daemon
 ├── nomad.hcl.example        # Exemplo de configuração do Nomad
-├── volumes/                 # Definições de volumes host
-│   ├── keycloak_data.hcl
-│   └── ollama_data.hcl
 └── .github/workflows/        # CI/CD GitHub Actions
     └── deploy-infrastructure.yml  # Deploy apenas da infraestrutura
 ```
@@ -188,9 +185,9 @@ O banco de dados PostgreSQL é gerenciado via Supabase. Configure as variáveis 
 
 ### 3. Configurar Volumes Nomad
 
-Os jobs Nomad usam volumes do tipo `host` para persistência de dados. Você precisa configurar esses volumes no cliente Nomad.
+Os jobs Nomad usam volumes do tipo `host` para persistência de dados. **Volumes host devem ser configurados no arquivo de configuração do cliente Nomad** (`/etc/nomad.d/nomad.hcl`).
 
-#### Opção 1: Configurar no arquivo nomad.hcl (Recomendado)
+**Importante:** Volumes do tipo `host` não podem ser registrados via CLI. Eles devem ser configurados diretamente no arquivo de configuração.
 
 Edite o arquivo `/etc/nomad.d/nomad.hcl` e adicione os volumes host na seção `client`:
 
@@ -229,24 +226,10 @@ sudo chmod -R 755 /opt/nomad/volumes
 
 # Reiniciar Nomad para aplicar mudanças
 sudo systemctl restart nomad
+
+# Verificar se os volumes estão disponíveis
+nomad node status -self
 ```
-
-#### Opção 2: Registrar volumes via API/CLI
-
-Se preferir registrar os volumes dinamicamente, use os arquivos em `volumes/`:
-
-```bash
-# Registrar volume do Keycloak
-nomad volume register volumes/keycloak_data.hcl
-
-# Registrar volume do Ollama
-nomad volume register volumes/ollama_data.hcl
-
-# Verificar volumes registrados
-nomad volume status
-```
-
-**Nota:** Certifique-se de que os diretórios existem antes de registrar os volumes.
 
 ## Deploy Manual
 
@@ -468,14 +451,13 @@ Constraint "missing compatible host volumes": 1 nodes excluded by filter
    sudo systemctl restart nomad
    ```
 
-3. **Ou registrar volumes via CLI:**
+3. **Verificar se os volumes estão configurados corretamente:**
    ```bash
-   # Registrar volumes
-   nomad volume register volumes/keycloak_data.hcl
-   nomad volume register volumes/ollama_data.hcl
+   # Verificar configuração do nó
+   nomad node status -self
    
-   # Verificar
-   nomad volume status
+   # Verificar se o Nomad está rodando com a nova configuração
+   sudo systemctl status nomad
    ```
 
 4. **Verificar se os diretórios existem e têm permissões corretas:**
