@@ -1,0 +1,67 @@
+name: Build and Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'huper-estetica/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout infrastructure repo
+        uses: actions/checkout@v4
+        with:
+          path: infra
+      
+      - name: Checkout backend repo
+        uses: actions/checkout@v4
+        with:
+          repository: huperdigital/huper-estetica
+          path: huper-estetica
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      
+      - name: Build backend
+        working-directory: huper-estetica
+        run: |
+          chmod +x gradlew
+          ./gradlew build -x test
+      
+      - name: Build Docker image
+        working-directory: huper-estetica
+        run: |
+          docker build -f src/main/docker/Dockerfile.jvm \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/huper-estetica:${{ github.sha }} \
+            -t ${{ secrets.DOCKER_HUB_USERNAME }}/huper-estetica:latest .
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/huper-estetica:${{ github.sha }}
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/huper-estetica:latest
+      
+      - name: Deploy to Nomad
+        env:
+          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          VERSION: ${{ github.sha }}
+        run: |
+          cd infra
+          nomad job run -address=$NOMAD_ADDR nomad/huper-estetica.nomad
+
