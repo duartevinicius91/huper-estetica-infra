@@ -33,6 +33,82 @@ unzip nomad_1.7.0_linux_amd64.zip
 sudo mv nomad /usr/local/bin/
 ```
 
+#### Windows
+```powershell
+# Usando Chocolatey
+choco install nomad
+
+# Ou baixar manualmente de:
+# https://releases.hashicorp.com/nomad/
+```
+
+### Configurar Nomad como Serviço Systemd (Ubuntu/Debian)
+
+Para rodar o Nomad como daemon no Ubuntu, use o arquivo `nomad.service` incluído:
+
+```bash
+# 1. Criar diretório de configuração do Nomad
+sudo mkdir -p /etc/nomad.d
+
+# 2. Criar arquivo de configuração básico
+# Você pode usar o arquivo nomad.hcl.example como referência
+sudo cp nomad.hcl.example /etc/nomad.d/nomad.hcl
+# Ou criar manualmente:
+sudo tee /etc/nomad.d/nomad.hcl > /dev/null <<EOF
+datacenter = "dc1"
+data_dir = "/opt/nomad/data"
+
+server {
+  enabled = true
+  bootstrap_expect = 1
+}
+
+client {
+  enabled = true
+}
+EOF
+
+# 3. Criar diretório de dados e logs
+sudo mkdir -p /opt/nomad/data
+sudo mkdir -p /var/log/nomad
+
+# 4. Copiar o arquivo de serviço
+sudo cp nomad.service /etc/systemd/system/nomad.service
+
+# 5. Recarregar systemd
+sudo systemctl daemon-reload
+
+# 6. Habilitar o serviço para iniciar no boot
+sudo systemctl enable nomad
+
+# 7. Iniciar o serviço
+sudo systemctl start nomad
+
+# 8. Verificar status
+sudo systemctl status nomad
+
+# 9. Ver logs
+sudo journalctl -u nomad -f
+```
+
+**Comandos úteis:**
+```bash
+# Parar o serviço
+sudo systemctl stop nomad
+
+# Reiniciar o serviço
+sudo systemctl restart nomad
+
+# Ver logs em tempo real
+sudo journalctl -u nomad -f
+
+# Ver últimas 100 linhas de log
+sudo journalctl -u nomad -n 100
+
+# Verificar status
+sudo systemctl status nomad
+```
+
 ## Estrutura do Projeto
 
 ```
@@ -43,6 +119,8 @@ huper-estetica-infra/
 │   ├── ollama.nomad          # Infraestrutura
 │   ├── huper-estetica.nomad  # Aplicação (deploy via pipeline do serviço)
 │   └── huper-estetica-front.nomad  # Aplicação (deploy via pipeline do serviço)
+├── nomad.service            # Arquivo systemd para rodar Nomad como daemon
+├── nomad.hcl.example        # Exemplo de configuração do Nomad
 └── .github/workflows/        # CI/CD GitHub Actions
     └── deploy-infrastructure.yml  # Deploy apenas da infraestrutura
 ```
@@ -99,15 +177,11 @@ O banco de dados PostgreSQL é gerenciado via Supabase. Configure as variáveis 
 - `POSTGRES_USER`: Usuário do banco
 - `POSTGRES_PASSWORD`: Senha do banco
 
-### 3. Preparar Volumes Nomad
+### 3. Configurar Volumes Nomad
 
-Os jobs Nomad usam volumes para persistência de dados. Configure os volumes no Nomad:
+Os jobs Nomad usam volumes do tipo `host` para persistência de dados. Esses volumes são criados automaticamente quando os jobs são executados, desde que o driver de volume `host` esteja habilitado no servidor Nomad.
 
-```bash
-# Criar volumes (se necessário)
-nomad volume create -name keycloak_data -type host
-nomad volume create -name ollama_data -type host
-```
+**Nota:** Se você receber erros sobre volumes não encontrados, verifique se o driver de volume `host` está configurado no servidor Nomad. Os volumes serão criados automaticamente na primeira execução dos jobs.
 
 ## Deploy Manual
 
@@ -284,16 +358,54 @@ nomad alloc status
 ## Troubleshooting
 
 ### Erro: "Volume not found"
-**Solução**: Crie os volumes necessários:
-```bash
-nomad volume create -name postgres_data -type host
+**Solução**: 
+- Os volumes do tipo `host` são criados automaticamente quando os jobs são executados
+- Verifique se o driver de volume `host` está habilitado no servidor Nomad
+- Verifique a configuração do servidor Nomad (arquivo `nomad.hcl`) e certifique-se de que o plugin de volume está configurado
+
+### Erro: "Cannot connect to Nomad" ou "connection refused"
+
+**Sintomas:**
+```
+Error submitting job: Put "http://127.0.0.1:4646/v1/jobs": dial tcp 127.0.0.1:4646: connect: connection refused
 ```
 
-### Erro: "Cannot connect to Nomad"
-**Solução**: Verifique se o Nomad está rodando e se `NOMAD_ADDR` está correto:
-```bash
-nomad server members
-```
+**Soluções:**
+
+1. **Verificar se o Nomad está rodando:**
+   ```bash
+   # Verificar status do serviço (Linux)
+   sudo systemctl status nomad
+   
+   # Ou verificar processos
+   ps aux | grep nomad
+   ```
+
+2. **Iniciar o Nomad em modo dev (para desenvolvimento local):**
+   ```bash
+   nomad agent -dev
+   ```
+   Isso iniciará um servidor Nomad local em `http://127.0.0.1:4646`
+
+3. **Configurar NOMAD_ADDR para servidor remoto:**
+   ```bash
+   export NOMAD_ADDR=http://seu-servidor-nomad:4646
+   # ou adicione ao seu arquivo .env
+   echo "NOMAD_ADDR=http://seu-servidor-nomad:4646" >> .env
+   ```
+
+4. **Verificar conectividade:**
+   ```bash
+   # Testar conexão
+   nomad server members
+   # ou
+   curl http://127.0.0.1:4646/v1/status/leader
+   ```
+
+5. **Se estiver usando um servidor remoto, verifique:**
+   - Se o servidor está acessível na rede
+   - Se a porta 4646 está aberta no firewall
+   - Se há autenticação necessária (configure `NOMAD_TOKEN`)
 
 ### Erro: "Image pull failed"
 **Solução**: 

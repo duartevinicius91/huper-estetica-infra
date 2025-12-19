@@ -8,6 +8,56 @@ Guia rápido para subir a infraestrutura da Abby via Nomad.
 2. Docker instalado e rodando
 3. Acesso ao Docker Hub
 
+### Iniciar Nomad (se necessário)
+
+**Opção 1: Modo Dev (Desenvolvimento)**
+```bash
+nomad agent -dev
+```
+
+**Opção 2: Como Serviço Systemd (Produção/Ubuntu)**
+```bash
+# 1. Criar diretório de configuração
+sudo mkdir -p /etc/nomad.d
+
+# 2. Criar arquivo de configuração básico
+sudo tee /etc/nomad.d/nomad.hcl > /dev/null <<EOF
+datacenter = "dc1"
+data_dir = "/opt/nomad/data"
+
+server {
+  enabled = true
+  bootstrap_expect = 1
+}
+
+client {
+  enabled = true
+}
+EOF
+
+# 3. Criar diretório de dados
+sudo mkdir -p /opt/nomad/data
+
+# 4. Copiar e instalar o serviço
+sudo cp nomad.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable nomad
+sudo systemctl start nomad
+
+# 5. Verificar status
+sudo systemctl status nomad
+```
+
+**Para servidor remoto:**
+```bash
+export NOMAD_ADDR=http://seu-servidor-nomad:4646
+```
+
+**Verificar conexão:**
+```bash
+nomad server members
+```
+
 ## Passos Rápidos
 
 ### 1. Configurar Variáveis
@@ -36,6 +86,10 @@ POSTGRES_PASSWORD=sua_senha
 
 **Via Nomad CLI:**
 ```bash
+# Certifique-se de que o Nomad está rodando
+# Se estiver em modo dev: nomad agent -dev
+# Se for servidor remoto: export NOMAD_ADDR=http://seu-servidor:4646
+
 export NOMAD_ADDR=http://localhost:4646
 nomad job run nomad/keycloak.nomad
 nomad job run nomad/ollama.nomad
@@ -87,15 +141,26 @@ Certifique-se de configurar no `.env`:
 ## Troubleshooting Rápido
 
 **Erro: "Volume not found"**
-```bash
-nomad volume create -name keycloak_data -type host
-nomad volume create -name ollama_data -type host
-```
+- Os volumes do tipo `host` são criados automaticamente quando os jobs são executados
+- Verifique se o driver de volume `host` está habilitado no servidor Nomad
+- Se o erro persistir, verifique a configuração do servidor Nomad (arquivo `nomad.hcl`)
 
-**Erro: "Cannot connect to Nomad"**
-```bash
-export NOMAD_ADDR=http://seu-servidor-nomad:4646
-```
+**Erro: "Cannot connect to Nomad" ou "connection refused"**
+
+1. **Iniciar Nomad em modo dev (local):**
+   ```bash
+   nomad agent -dev
+   ```
+
+2. **Configurar NOMAD_ADDR para servidor remoto:**
+   ```bash
+   export NOMAD_ADDR=http://seu-servidor-nomad:4646
+   ```
+
+3. **Verificar conexão:**
+   ```bash
+   nomad server members
+   ```
 
 **Erro: "Image pull failed"**
 - Verifique se fez login no Docker Hub: `docker login`

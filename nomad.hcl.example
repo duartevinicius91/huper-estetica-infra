@@ -1,0 +1,31 @@
+# Configuração básica do Nomad
+# Copie este arquivo para /etc/nomad.d/nomad.hcl
+
+datacenter = "dc1"
+data_dir = "/opt/nomad/data"
+
+# Configuração do servidor
+server {
+  enabled = true
+  bootstrap_expect = 1
+}
+
+# Configuração do cliente
+client {
+  enabled = true
+}
+
+# Configuração de rede
+bind_addr = "0.0.0.0"
+
+# Portas (opcional - padrões)
+ports {
+  http = 4646
+  rpc  = 4647
+  serf = 4648
+}
+
+# Logs
+log_level = "INFO"
+log_file  = "/var/log/nomad/nomad.log"
+
