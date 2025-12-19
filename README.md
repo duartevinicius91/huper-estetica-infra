@@ -68,9 +68,15 @@ client {
 }
 EOF
 
-# 3. Criar diretório de dados e logs
+# 3. Criar diretórios de dados, logs e volumes
 sudo mkdir -p /opt/nomad/data
+sudo mkdir -p /opt/nomad/volumes/keycloak_data
+sudo mkdir -p /opt/nomad/volumes/ollama_data
 sudo mkdir -p /var/log/nomad
+
+# Dar permissões adequadas
+sudo chown -R root:root /opt/nomad
+sudo chmod -R 755 /opt/nomad
 
 # 4. Copiar o arquivo de serviço
 sudo cp nomad.service /etc/systemd/system/nomad.service
@@ -121,6 +127,9 @@ huper-estetica-infra/
 │   └── huper-estetica-front.nomad  # Aplicação (deploy via pipeline do serviço)
 ├── nomad.service            # Arquivo systemd para rodar Nomad como daemon
 ├── nomad.hcl.example        # Exemplo de configuração do Nomad
+├── volumes/                 # Definições de volumes host
+│   ├── keycloak_data.hcl
+│   └── ollama_data.hcl
 └── .github/workflows/        # CI/CD GitHub Actions
     └── deploy-infrastructure.yml  # Deploy apenas da infraestrutura
 ```
@@ -179,9 +188,65 @@ O banco de dados PostgreSQL é gerenciado via Supabase. Configure as variáveis 
 
 ### 3. Configurar Volumes Nomad
 
-Os jobs Nomad usam volumes do tipo `host` para persistência de dados. Esses volumes são criados automaticamente quando os jobs são executados, desde que o driver de volume `host` esteja habilitado no servidor Nomad.
+Os jobs Nomad usam volumes do tipo `host` para persistência de dados. Você precisa configurar esses volumes no cliente Nomad.
 
-**Nota:** Se você receber erros sobre volumes não encontrados, verifique se o driver de volume `host` está configurado no servidor Nomad. Os volumes serão criados automaticamente na primeira execução dos jobs.
+#### Opção 1: Configurar no arquivo nomad.hcl (Recomendado)
+
+Edite o arquivo `/etc/nomad.d/nomad.hcl` e adicione os volumes host na seção `client`:
+
+```bash
+sudo nano /etc/nomad.d/nomad.hcl
+```
+
+Adicione ou atualize a seção `client`:
+
+```hcl
+client {
+  enabled = true
+  
+  host_volume "keycloak_data" {
+    path      = "/opt/nomad/volumes/keycloak_data"
+    read_only = false
+  }
+  
+  host_volume "ollama_data" {
+    path      = "/opt/nomad/volumes/ollama_data"
+    read_only = false
+  }
+}
+```
+
+Crie os diretórios e reinicie o Nomad:
+
+```bash
+# Criar diretórios dos volumes
+sudo mkdir -p /opt/nomad/volumes/keycloak_data
+sudo mkdir -p /opt/nomad/volumes/ollama_data
+
+# Dar permissões adequadas
+sudo chown -R root:root /opt/nomad/volumes
+sudo chmod -R 755 /opt/nomad/volumes
+
+# Reiniciar Nomad para aplicar mudanças
+sudo systemctl restart nomad
+```
+
+#### Opção 2: Registrar volumes via API/CLI
+
+Se preferir registrar os volumes dinamicamente, use os arquivos em `volumes/`:
+
+```bash
+# Registrar volume do Keycloak
+nomad volume register volumes/keycloak_data.hcl
+
+# Registrar volume do Ollama
+nomad volume register volumes/ollama_data.hcl
+
+# Verificar volumes registrados
+nomad volume status
+```
+
+**Nota:** Certifique-se de que os diretórios existem antes de registrar os volumes.
 
 ## Deploy Manual
 
@@ -357,11 +422,68 @@ nomad alloc status
 
 ## Troubleshooting
 
-### Erro: "Volume not found"
-**Solução**: 
-- Os volumes do tipo `host` são criados automaticamente quando os jobs são executados
-- Verifique se o driver de volume `host` está habilitado no servidor Nomad
-- Verifique a configuração do servidor Nomad (arquivo `nomad.hcl`) e certifique-se de que o plugin de volume está configurado
+### Erro: "Volume not found" ou "missing compatible host volumes"
+
+**Sintomas:**
+```
+Constraint "missing compatible host volumes": 1 nodes excluded by filter
+```
+
+**Soluções:**
+
+1. **Verificar se os volumes estão configurados no cliente Nomad:**
+   ```bash
+   # Verificar configuração do cliente
+   nomad node status -self
+   
+   # Ver volumes registrados
+   nomad volume status
+   ```
+
+2. **Configurar volumes host no arquivo nomad.hcl:**
+   ```bash
+   # Editar configuração
+   sudo nano /etc/nomad.d/nomad.hcl
+   
+   # Adicionar na seção client:
+   client {
+     enabled = true
+     
+     host_volume "keycloak_data" {
+       path      = "/opt/nomad/volumes/keycloak_data"
+       read_only = false
+     }
+     
+     host_volume "ollama_data" {
+       path      = "/opt/nomad/volumes/ollama_data"
+       read_only = false
+     }
+   }
+   
+   # Criar diretórios
+   sudo mkdir -p /opt/nomad/volumes/keycloak_data
+   sudo mkdir -p /opt/nomad/volumes/ollama_data
+   
+   # Reiniciar Nomad
+   sudo systemctl restart nomad
+   ```
+
+3. **Ou registrar volumes via CLI:**
+   ```bash
+   # Registrar volumes
+   nomad volume register volumes/keycloak_data.hcl
+   nomad volume register volumes/ollama_data.hcl
+   
+   # Verificar
+   nomad volume status
+   ```
+
+4. **Verificar se os diretórios existem e têm permissões corretas:**
+   ```bash
+   ls -la /opt/nomad/volumes/
+   sudo chown -R root:root /opt/nomad/volumes
+   sudo chmod -R 755 /opt/nomad/volumes
+   ```
 
 ### Erro: "Cannot connect to Nomad" ou "connection refused"
 

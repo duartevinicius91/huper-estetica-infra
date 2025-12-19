@@ -79,7 +79,42 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=sua_senha
 ```
 
-### 3. Deploy da Infraestrutura
+### 3. Configurar Volumes Host
+
+Antes de fazer deploy, configure os volumes host no Nomad:
+
+**Opção 1: Via arquivo de configuração (Recomendado)**
+```bash
+# Editar /etc/nomad.d/nomad.hcl e adicionar na seção client:
+client {
+  enabled = true
+  
+  host_volume "keycloak_data" {
+    path      = "/opt/nomad/volumes/keycloak_data"
+    read_only = false
+  }
+  
+  host_volume "ollama_data" {
+    path      = "/opt/nomad/volumes/ollama_data"
+    read_only = false
+  }
+}
+
+# Criar diretórios
+sudo mkdir -p /opt/nomad/volumes/keycloak_data
+sudo mkdir -p /opt/nomad/volumes/ollama_data
+
+# Reiniciar Nomad
+sudo systemctl restart nomad
+```
+
+**Opção 2: Registrar volumes via CLI**
+```bash
+nomad volume register volumes/keycloak_data.hcl
+nomad volume register volumes/ollama_data.hcl
+```
+
+### 4. Deploy da Infraestrutura
 
 **Via GitHub Actions (Recomendado):**
 - Execute o workflow "Deploy Infrastructure" manualmente ou faça push das mudanças
@@ -97,13 +132,13 @@ nomad job run nomad/ollama.nomad
 
 > **Nota:** O PostgreSQL é gerenciado via Supabase e não precisa ser deployado. As aplicações (`huper-estetica` e `huper-estetica-front`) são deployadas automaticamente pelas pipelines de build de cada repositório.
 
-### 4. Verificar Status
+### 5. Verificar Status
 
 ```bash
 nomad job status
 ```
 
-### 5. Ver Logs
+### 6. Ver Logs
 
 ```bash
 nomad job logs postgres
@@ -140,10 +175,35 @@ Certifique-se de configurar no `.env`:
 
 ## Troubleshooting Rápido
 
-**Erro: "Volume not found"**
-- Os volumes do tipo `host` são criados automaticamente quando os jobs são executados
-- Verifique se o driver de volume `host` está habilitado no servidor Nomad
-- Se o erro persistir, verifique a configuração do servidor Nomad (arquivo `nomad.hcl`)
+**Erro: "Volume not found" ou "missing compatible host volumes"**
+
+1. **Configurar volumes no nomad.hcl:**
+   ```bash
+   # Adicionar na seção client do /etc/nomad.d/nomad.hcl
+   client {
+     enabled = true
+     
+     host_volume "keycloak_data" {
+       path      = "/opt/nomad/volumes/keycloak_data"
+       read_only = false
+     }
+     
+     host_volume "ollama_data" {
+       path      = "/opt/nomad/volumes/ollama_data"
+       read_only = false
+     }
+   }
+   
+   # Criar diretórios e reiniciar
+   sudo mkdir -p /opt/nomad/volumes/{keycloak_data,ollama_data}
+   sudo systemctl restart nomad
+   ```
+
+2. **Ou registrar volumes via CLI:**
+   ```bash
+   nomad volume register volumes/keycloak_data.hcl
+   nomad volume register volumes/ollama_data.hcl
+   ```
 
 **Erro: "Cannot connect to Nomad" ou "connection refused"**
 
