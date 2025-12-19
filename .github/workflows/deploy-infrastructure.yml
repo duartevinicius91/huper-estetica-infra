@@ -1,0 +1,40 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'nomad/keycloak.nomad'
+      - 'nomad/ollama.nomad'
+  workflow_dispatch:
+
+jobs:
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout infrastructure repo
+        uses: actions/checkout@v4
+      
+      - name: Install Nomad CLI
+        run: |
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt update && sudo apt install -y nomad
+      
+      - name: Deploy Keycloak
+        env:
+          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+          KEYCLOAK_ADMIN_USERNAME: ${{ secrets.KEYCLOAK_ADMIN_USERNAME }}
+          KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
+        run: |
+          nomad job run -address=$NOMAD_ADDR nomad/keycloak.nomad
+      
+      - name: Deploy Ollama
+        env:
+          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
+        run: |
+          nomad job run -address=$NOMAD_ADDR nomad/ollama.nomad
+

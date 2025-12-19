@@ -33,36 +33,21 @@ unzip nomad_1.7.0_linux_amd64.zip
 sudo mv nomad /usr/local/bin/
 ```
 
-#### Windows
-```powershell
-# Usando Chocolatey
-choco install nomad
-
-# Ou baixar manualmente de:
-# https://releases.hashicorp.com/nomad/
-```
-
 ## Estrutura do Projeto
 
 ```
 huper-estetica-infra/
 ├── nomad/                    # Jobs Nomad
-│   ├── postgres.nomad
-│   ├── keycloak.nomad
-│   ├── ollama.nomad
-│   ├── huper-estetica.nomad
-│   └── huper-estetica-front.nomad
-├── scripts/                  # Scripts de build e deploy
-│   ├── clone-repos.sh        # Clonar repositórios
-│   ├── build-images.sh       # Build imagens Docker
-│   ├── push-images.sh        # Push para Docker Hub
-│   ├── deploy.sh             # Deploy no Nomad
-│   ├── build-and-deploy.sh   # Script completo
-│   └── *.bat                 # Versões Windows
+│   ├── postgres.nomad        # Infraestrutura (não utilizado - usa Supabase)
+│   ├── keycloak.nomad        # Infraestrutura
+│   ├── ollama.nomad          # Infraestrutura
+│   ├── huper-estetica.nomad  # Aplicação (deploy via pipeline do serviço)
+│   └── huper-estetica-front.nomad  # Aplicação (deploy via pipeline do serviço)
 └── .github/workflows/        # CI/CD GitHub Actions
-    ├── deploy-backend.yml
-    └── deploy-frontend.yml
+    └── deploy-infrastructure.yml  # Deploy apenas da infraestrutura
 ```
+
+> **Nota:** Este repositório gerencia apenas a infraestrutura (Keycloak, Ollama). O banco de dados PostgreSQL é gerenciado via Supabase (não é deployado aqui). Os containers das aplicações (`huper-estetica` e `huper-estetica-front`) são atualizados automaticamente pelas pipelines de build de cada repositório de serviço.
 
 ## Configuração Inicial
 
@@ -104,117 +89,106 @@ export STRIPE_WEBHOOK_SECRET=sua_chave
 export FACEBOOK_APP_ID=seu_id
 ```
 
-**Windows (PowerShell):**
-```powershell
-$env:DOCKER_HUB_USERNAME="seu_usuario"
-$env:DOCKER_HUB_PASSWORD="sua_senha"
-$env:NOMAD_ADDR="http://localhost:4646"
-# ... etc
-```
+### 2. Configurar Supabase
 
-### 2. Preparar Volumes Nomad
+O banco de dados PostgreSQL é gerenciado via Supabase. Configure as variáveis de ambiente com as credenciais do seu projeto Supabase:
+
+- `POSTGRES_HOST`: Host do Supabase (ex: `db.xxxxx.supabase.co`)
+- `POSTGRES_PORT`: Porta (geralmente `5432`)
+- `POSTGRES_DB`: Nome do banco de dados
+- `POSTGRES_USER`: Usuário do banco
+- `POSTGRES_PASSWORD`: Senha do banco
+
+### 3. Preparar Volumes Nomad
 
 Os jobs Nomad usam volumes para persistência de dados. Configure os volumes no Nomad:
 
 ```bash
 # Criar volumes (se necessário)
-nomad volume create -name postgres_data -type host
 nomad volume create -name keycloak_data -type host
 nomad volume create -name ollama_data -type host
 ```
 
 ## Deploy Manual
 
-### Opção 1: Script Completo (Recomendado)
+### Deploy da Infraestrutura
 
-**Linux/macOS:**
+A infraestrutura (Keycloak, Ollama) pode ser deployada via:
+
+> **Nota:** O banco de dados PostgreSQL é gerenciado via Supabase e não precisa ser deployado.
+
+**Opção 1: Via GitHub Actions (Recomendado)**
 ```bash
-chmod +x scripts/*.sh
-./scripts/build-and-deploy.sh
+# Execute o workflow "Deploy Infrastructure" manualmente ou faça push das mudanças nos jobs Nomad
 ```
 
-**Windows:**
-```powershell
-.\scripts\clone-repos.bat
-.\scripts\build-images.bat
-.\scripts\push-images.bat
-.\scripts\deploy.bat
-```
-
-### Opção 2: Passo a Passo
-
-#### 1. Clonar Repositórios
-```bash
-./scripts/clone-repos.sh
-```
-
-#### 2. Build das Imagens Docker
-```bash
-export DOCKER_HUB_USERNAME=seu_usuario
-export VERSION=latest
-./scripts/build-images.sh
-```
-
-#### 3. Push para Docker Hub
-```bash
-export DOCKER_HUB_PASSWORD=sua_senha
-./scripts/push-images.sh
-```
-
-#### 4. Deploy no Nomad
+**Opção 2: Via Nomad CLI**
 ```bash
 export NOMAD_ADDR=http://seu-nomad:4646
-./scripts/deploy.sh
-```
-
-### Opção 3: Deploy Individual
-
-```bash
-# Deploy de um serviço específico
-nomad job run nomad/postgres.nomad
 nomad job run nomad/keycloak.nomad
 nomad job run nomad/ollama.nomad
+```
+
+### Deploy das Aplicações
+
+As aplicações (`huper-estetica` e `huper-estetica-front`) são deployadas automaticamente pelas pipelines de build de cada repositório. Não é necessário fazer deploy manual aqui.
+
+### Deploy Individual
+
+```bash
+# Deploy de um serviço específico de infraestrutura
+nomad job run nomad/keycloak.nomad
+nomad job run nomad/ollama.nomad
+
+# Deploy das aplicações (geralmente feito via pipelines)
 nomad job run nomad/huper-estetica.nomad
 nomad job run nomad/huper-estetica-front.nomad
 ```
 
 ## CI/CD
 
-O projeto inclui workflows GitHub Actions para deploy automático.
+### Fluxo de Deploy
+
+1. **Infraestrutura**: Este repositório contém um workflow que faz deploy apenas da infraestrutura (Keycloak, Ollama) quando há mudanças nos jobs Nomad correspondentes. O banco de dados PostgreSQL é gerenciado via Supabase.
+
+2. **Aplicações**: Cada repositório de aplicação (`huper-estetica` e `huper-estetica-front`) possui sua própria pipeline de build que:
+   - Constrói a aplicação
+   - Cria a imagem Docker
+   - Faz push para Docker Hub
+   - **Faz deploy automático no Nomad** usando os jobs deste repositório
 
 ### Configurar Secrets no GitHub
 
-No repositório GitHub, configure os seguintes secrets:
+No repositório de infraestrutura (`huper-estetica-infra`), configure:
 
-1. **DOCKER_HUB_USERNAME**: Seu usuário do Docker Hub
-2. **DOCKER_HUB_PASSWORD**: Sua senha/token do Docker Hub
-3. **NOMAD_ADDR**: Endereço do servidor Nomad (ex: `http://nomad.example.com:4646`)
-4. **NOMAD_TOKEN**: Token de autenticação do Nomad (se necessário)
+1. **NOMAD_ADDR**: Endereço do servidor Nomad (ex: `http://nomad.example.com:4646`)
+2. **KEYCLOAK_ADMIN_USERNAME**: Usuário admin do Keycloak
+3. **KEYCLOAK_ADMIN_PASSWORD**: Senha admin do Keycloak
 
-### Como Funciona
+Nos repositórios de aplicação (`huper-estetica` e `huper-estetica-front`), configure:
 
-- **Backend**: Quando há push na branch `main`/`master` do repositório `huper-estetica`, o workflow:
-  1. Faz checkout dos repositórios
-  2. Builda a aplicação Java
-  3. Cria a imagem Docker
-  4. Faz push para Docker Hub
-  5. Atualiza o job no Nomad
+1. **DOCKERHUB_USERNAME**: Seu usuário do Docker Hub
+2. **DOCKERHUB_ACCESS_TOKEN**: Token de acesso do Docker Hub
+3. **NOMAD_ADDR**: Endereço do servidor Nomad
+4. **INFRA_REPO_TOKEN**: Token para acessar o repositório de infraestrutura (opcional, pode usar GITHUB_TOKEN)
+5. **Variáveis do Supabase**:
+   - **POSTGRES_HOST**: Host do Supabase (ex: `db.xxxxx.supabase.co`)
+   - **POSTGRES_PORT**: Porta (geralmente `5432`)
+   - **POSTGRES_DB**: Nome do banco de dados
+   - **POSTGRES_USER**: Usuário do banco
+   - **POSTGRES_PASSWORD**: Senha do banco
+6. Todas as outras variáveis de ambiente necessárias para as aplicações (KEYCLOAK_*, etc.)
 
-- **Frontend**: Similar ao backend, mas para o repositório `huper-estetica-front`
+### Executar Deploy da Infraestrutura Manualmente
 
-### Executar Manualmente
-
-Você pode executar os workflows manualmente através da interface do GitHub:
-1. Vá em **Actions**
-2. Selecione o workflow desejado
+1. Vá em **Actions** neste repositório
+2. Selecione o workflow "Deploy Infrastructure"
 3. Clique em **Run workflow**
 
 ## Jobs Nomad
 
 ### PostgreSQL
-- **Porta**: 5432
-- **Volume**: `postgres_data`
-- **Recursos**: 500 CPU, 512MB RAM
+> **Nota:** O PostgreSQL não é deployado via Nomad. O banco de dados é gerenciado via Supabase. Configure as variáveis de ambiente `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` e `POSTGRES_PASSWORD` com as credenciais do seu projeto Supabase.
 
 ### Keycloak
 - **Portas**: 7080 (HTTP), 7443 (HTTPS)

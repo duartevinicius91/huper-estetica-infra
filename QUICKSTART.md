@@ -17,34 +17,56 @@ cp env.example .env
 # Edite o .env com suas configurações
 ```
 
-### 2. Deploy Completo (Recomendado)
+### 2. Configurar Supabase
 
-**Linux/macOS:**
+Configure as variáveis de ambiente com as credenciais do seu projeto Supabase no arquivo `.env`:
+
 ```bash
-chmod +x scripts/*.sh
-./scripts/build-and-deploy.sh
+POSTGRES_HOST=db.xxxxx.supabase.co
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=sua_senha
 ```
 
-### 3. Verificar Status
+### 3. Deploy da Infraestrutura
+
+**Via GitHub Actions (Recomendado):**
+- Execute o workflow "Deploy Infrastructure" manualmente ou faça push das mudanças
+
+**Via Nomad CLI:**
+```bash
+export NOMAD_ADDR=http://localhost:4646
+nomad job run nomad/keycloak.nomad
+nomad job run nomad/ollama.nomad
+```
+
+> **Nota:** O PostgreSQL é gerenciado via Supabase e não precisa ser deployado. As aplicações (`huper-estetica` e `huper-estetica-front`) são deployadas automaticamente pelas pipelines de build de cada repositório.
+
+### 4. Verificar Status
 
 ```bash
 nomad job status
 ```
 
-### 4. Ver Logs
+### 5. Ver Logs
 
 ```bash
 nomad job logs postgres
 nomad job logs huper-estetica
 ```
 
-## Deploy Apenas no Nomad (sem build)
+## Deploy Manual de um Serviço de Infraestrutura
 
-Se as imagens já estiverem no Docker Hub:
+Para fazer deploy manual de um serviço específico:
 
 ```bash
-./scripts/deploy.sh
+export NOMAD_ADDR=http://localhost:4646
+nomad job run nomad/keycloak.nomad
+nomad job run nomad/ollama.nomad
 ```
+
+> **Nota:** O PostgreSQL não é deployado aqui, pois é gerenciado via Supabase.
 
 ## Variáveis Importantes
 
@@ -53,7 +75,12 @@ Certifique-se de configurar no `.env`:
 - `DOCKER_HUB_USERNAME`: Seu usuário do Docker Hub
 - `DOCKER_HUB_PASSWORD`: Sua senha do Docker Hub
 - `NOMAD_ADDR`: Endereço do Nomad (ex: `http://localhost:4646`)
-- `POSTGRES_HOST`: Host do PostgreSQL (use `localhost` se estiver no mesmo servidor)
+- **Supabase (PostgreSQL)**:
+  - `POSTGRES_HOST`: Host do Supabase (ex: `db.xxxxx.supabase.co`)
+  - `POSTGRES_PORT`: Porta (geralmente `5432`)
+  - `POSTGRES_DB`: Nome do banco de dados
+  - `POSTGRES_USER`: Usuário do banco
+  - `POSTGRES_PASSWORD`: Senha do banco
 - `KEYCLOAK_HOST`: Host do Keycloak (use `localhost` se estiver no mesmo servidor)
 - `API_URL`: URL da API para o frontend (ex: `http://localhost:8080/api`)
 
@@ -61,7 +88,6 @@ Certifique-se de configurar no `.env`:
 
 **Erro: "Volume not found"**
 ```bash
-nomad volume create -name postgres_data -type host
 nomad volume create -name keycloak_data -type host
 nomad volume create -name ollama_data -type host
 ```
