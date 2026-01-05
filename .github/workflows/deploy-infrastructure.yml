@@ -77,12 +77,16 @@ jobs:
       
       - name: Deploy Keycloak
         env:
-          KEYCLOAK_ADMIN_USERNAME: admin
-          KEYCLOAK_ADMIN_PASSWORD: admin
+          NOMAD_ADDR: http://${{ secrets.VPS_HOST }}.vps.ovh.net:4646
+          KEYCLOAK_ADMIN_USERNAME: ${{ secrets.KEYCLOAK_ADMIN_USERNAME || 'admin' }}
+          KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD || 'admin' }}
+          KEYCLOAK_HOSTNAME: ${{ secrets.VPS_HOST }}.vps.ovh.net
         run: |
-          nomad job run nomad/keycloak.nomad
+          nomad job run -address=$NOMAD_ADDR nomad/keycloak.nomad
       
       - name: Deploy Ollama
+        env:
+          NOMAD_ADDR: http://${{ secrets.VPS_HOST }}.vps.ovh.net:4646
         run: |
-          nomad job run nomad/ollama.nomad
+          nomad job run -address=$NOMAD_ADDR nomad/ollama.nomad
 

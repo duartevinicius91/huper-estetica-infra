@@ -46,6 +46,16 @@ KC_BOOTSTRAP_ADMIN_PASSWORD="{{ env "KEYCLOAK_ADMIN_PASSWORD" }}"
 {{- else }}
 KC_BOOTSTRAP_ADMIN_PASSWORD="admin"
 {{- end }}
+{{- if env "KEYCLOAK_HOSTNAME" }}
+KC_HOSTNAME="{{ env "KEYCLOAK_HOSTNAME" }}"
+KC_HOSTNAME_STRICT=false
+KC_HOSTNAME_STRICT_HTTPS=false
+{{- end }}
+KC_HTTP_RELATIVE_PATH=/
+KC_PROXY=edge
+KC_HTTP_ENABLED=true
+KC_HTTPS_ENABLED=true
+KC_HTTP2_ENABLED=false
 EOH
         destination = "secrets/env"
         env         = true
