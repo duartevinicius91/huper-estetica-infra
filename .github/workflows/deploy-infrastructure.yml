@@ -77,7 +77,7 @@ jobs:
       
       - name: Deploy Keycloak
         env:
-          NOMAD_ADDR: http://${{ secrets.VPS_HOST }}
+          NOMAD_ADDR: http://${{ secrets.VPS_HOST }}:4646
           KEYCLOAK_ADMIN_USERNAME: ${{ secrets.KEYCLOAK_ADMIN_USERNAME || 'admin' }}
           KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD || 'admin' }}
           KEYCLOAK_HOSTNAME: ${{ secrets.VPS_HOST }}
