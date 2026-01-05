@@ -70,7 +70,6 @@ EOF
 
 # 3. Criar diretórios de dados, logs e volumes
 sudo mkdir -p /opt/nomad/data
-sudo mkdir -p /opt/nomad/volumes/keycloak_data
 sudo mkdir -p /opt/nomad/volumes/ollama_data
 sudo mkdir -p /var/log/nomad
 
@@ -121,7 +120,6 @@ sudo systemctl status nomad
 huper-estetica-infra/
 ├── nomad/                    # Jobs Nomad
 │   ├── postgres.nomad        # Infraestrutura (não utilizado - usa Supabase)
-│   ├── keycloak.nomad        # Infraestrutura
 │   ├── ollama.nomad          # Infraestrutura
 │   ├── huper-estetica.nomad  # Aplicação (deploy via pipeline do serviço)
 │   └── huper-estetica-front.nomad  # Aplicação (deploy via pipeline do serviço)
@@ -131,7 +129,7 @@ huper-estetica-infra/
     └── deploy-infrastructure.yml  # Deploy apenas da infraestrutura
 ```
 
-> **Nota:** Este repositório gerencia apenas a infraestrutura (Keycloak, Ollama). O banco de dados PostgreSQL é gerenciado via Supabase (não é deployado aqui). Os containers das aplicações (`huper-estetica` e `huper-estetica-front`) são atualizados automaticamente pelas pipelines de build de cada repositório de serviço.
+> **Nota:** Este repositório gerencia apenas a infraestrutura (Ollama). O banco de dados PostgreSQL é gerenciado via Supabase (não é deployado aqui). Os containers das aplicações (`huper-estetica` e `huper-estetica-front`) são atualizados automaticamente pelas pipelines de build de cada repositório de serviço.
 
 ## Configuração Inicial
 
@@ -161,9 +159,6 @@ export POSTGRES_PASSWORD=senha_segura
 export POSTGRES_DB=huperestetica
 export POSTGRES_USER=postgres
 
-# Keycloak
-export KEYCLOAK_ADMIN_USERNAME=admin
-export KEYCLOAK_ADMIN_PASSWORD=senha_segura
 
 # Backend
 export OPENAI_API_KEY=sua_chave
@@ -201,11 +196,6 @@ Adicione ou atualize a seção `client`:
 client {
   enabled = true
   
-  host_volume "keycloak_data" {
-    path      = "/opt/nomad/volumes/keycloak_data"
-    read_only = false
-  }
-  
   host_volume "ollama_data" {
     path      = "/opt/nomad/volumes/ollama_data"
     read_only = false
@@ -217,7 +207,6 @@ Crie os diretórios e reinicie o Nomad:
 
 ```bash
 # Criar diretórios dos volumes
-sudo mkdir -p /opt/nomad/volumes/keycloak_data
 sudo mkdir -p /opt/nomad/volumes/ollama_data
 
 # Dar permissões adequadas
@@ -235,7 +224,7 @@ nomad node status -self
 
 ### Deploy da Infraestrutura
 
-A infraestrutura (Keycloak, Ollama) pode ser deployada via:
+A infraestrutura (Ollama) pode ser deployada via:
 
 > **Nota:** O banco de dados PostgreSQL é gerenciado via Supabase e não precisa ser deployado.
 
@@ -247,7 +236,6 @@ A infraestrutura (Keycloak, Ollama) pode ser deployada via:
 **Opção 2: Via Nomad CLI**
 ```bash
 export NOMAD_ADDR=http://seu-nomad:4646
-nomad job run nomad/keycloak.nomad
 nomad job run nomad/ollama.nomad
 ```
 
@@ -259,7 +247,6 @@ As aplicações (`huper-estetica` e `huper-estetica-front`) são deployadas auto
 
 ```bash
 # Deploy de um serviço específico de infraestrutura
-nomad job run nomad/keycloak.nomad
 nomad job run nomad/ollama.nomad
 
 # Deploy das aplicações (geralmente feito via pipelines)
@@ -271,7 +258,7 @@ nomad job run nomad/huper-estetica-front.nomad
 
 ### Fluxo de Deploy
 
-1. **Infraestrutura**: Este repositório contém um workflow que faz deploy apenas da infraestrutura (Keycloak, Ollama) quando há mudanças nos jobs Nomad correspondentes. O banco de dados PostgreSQL é gerenciado via Supabase.
+1. **Infraestrutura**: Este repositório contém um workflow que faz deploy apenas da infraestrutura (Ollama) quando há mudanças nos jobs Nomad correspondentes. O banco de dados PostgreSQL é gerenciado via Supabase.
 
 2. **Aplicações**: Cada repositório de aplicação (`huper-estetica` e `huper-estetica-front`) possui sua própria pipeline de build que:
    - Constrói a aplicação
@@ -284,8 +271,6 @@ nomad job run nomad/huper-estetica-front.nomad
 No repositório de infraestrutura (`huper-estetica-infra`), configure:
 
 1. **NOMAD_ADDR**: Endereço do servidor Nomad (ex: `http://nomad.example.com:4646`)
-2. **KEYCLOAK_ADMIN_USERNAME**: Usuário admin do Keycloak
-3. **KEYCLOAK_ADMIN_PASSWORD**: Senha admin do Keycloak
 
 Nos repositórios de aplicação (`huper-estetica` e `huper-estetica-front`), configure:
 
@@ -299,7 +284,7 @@ Nos repositórios de aplicação (`huper-estetica` e `huper-estetica-front`), co
    - **POSTGRES_DB**: Nome do banco de dados
    - **POSTGRES_USER**: Usuário do banco
    - **POSTGRES_PASSWORD**: Senha do banco
-6. Todas as outras variáveis de ambiente necessárias para as aplicações (KEYCLOAK_*, etc.)
+6. Todas as outras variáveis de ambiente necessárias para as aplicações
 
 ### Executar Deploy da Infraestrutura Manualmente
 
@@ -312,11 +297,6 @@ Nos repositórios de aplicação (`huper-estetica` e `huper-estetica-front`), co
 ### PostgreSQL
 > **Nota:** O PostgreSQL não é deployado via Nomad. O banco de dados é gerenciado via Supabase. Configure as variáveis de ambiente `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER` e `POSTGRES_PASSWORD` com as credenciais do seu projeto Supabase.
 
-### Keycloak
-- **Portas**: 7080 (HTTP), 7443 (HTTPS)
-- **Volume**: `keycloak_data`
-- **Recursos**: 1000 CPU, 1GB RAM
-
 ### Ollama
 - **Porta**: 11434
 - **Volume**: `ollama_data`
@@ -325,7 +305,7 @@ Nos repositórios de aplicação (`huper-estetica` e `huper-estetica-front`), co
 ### Huper Estética (Backend)
 - **Porta**: 8080
 - **Recursos**: 1000 CPU, 2GB RAM
-- **Dependências**: PostgreSQL, Keycloak
+- **Dependências**: PostgreSQL
 
 ### Huper Estética Front (Frontend)
 - **Porta**: 80
@@ -345,17 +325,10 @@ Nos repositórios de aplicação (`huper-estetica` e `huper-estetica-front`), co
 - `POSTGRES_DB`: Nome do banco de dados
 - `POSTGRES_USER`: Usuário do PostgreSQL
 
-#### Keycloak
-- `KEYCLOAK_ADMIN_USERNAME`: Usuário admin do Keycloak
-- `KEYCLOAK_ADMIN_PASSWORD`: Senha admin do Keycloak
-
 #### Backend (huper-estetica)
 - `POSTGRES_PASSWORD`: Senha do PostgreSQL
 - `POSTGRES_JDBC_URL`: URL de conexão JDBC
 - `POSTGRES_USER`: Usuário do PostgreSQL
-- `KEYCLOAK_AUTH_SERVER_URL`: URL do servidor Keycloak
-- `KEYCLOAK_ADMIN`: Usuário admin do Keycloak
-- `KEYCLOAK_ADMIN_PASSWORD`: Senha admin do Keycloak
 - `OPENAI_API_KEY`: Chave da API OpenAI
 - `STRIPE_SECRET_KEY`: Chave secreta do Stripe
 - `STRIPE_PUBLISHABLE_KEY`: Chave pública do Stripe
@@ -432,11 +405,6 @@ Constraint "missing compatible host volumes": 1 nodes excluded by filter
    client {
      enabled = true
      
-     host_volume "keycloak_data" {
-       path      = "/opt/nomad/volumes/keycloak_data"
-       read_only = false
-     }
-     
      host_volume "ollama_data" {
        path      = "/opt/nomad/volumes/ollama_data"
        read_only = false
@@ -444,7 +412,6 @@ Constraint "missing compatible host volumes": 1 nodes excluded by filter
    }
    
    # Criar diretórios
-   sudo mkdir -p /opt/nomad/volumes/keycloak_data
    sudo mkdir -p /opt/nomad/volumes/ollama_data
    
    # Reiniciar Nomad

@@ -15,11 +15,6 @@ client {
   enabled = true
   
   # Habilitar plugin de volume host
-  host_volume "keycloak_data" {
-    path      = "/opt/nomad/volumes/keycloak_data"
-    read_only = false
-  }
-  
   host_volume "ollama_data" {
     path      = "/opt/nomad/volumes/ollama_data"
     read_only = false

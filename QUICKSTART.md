@@ -93,11 +93,6 @@ sudo nano /etc/nomad.d/nomad.hcl
 client {
   enabled = true
   
-  host_volume "keycloak_data" {
-    path      = "/opt/nomad/volumes/keycloak_data"
-    read_only = false
-  }
-  
   host_volume "ollama_data" {
     path      = "/opt/nomad/volumes/ollama_data"
     read_only = false
@@ -105,7 +100,6 @@ client {
 }
 
 # 2. Criar diretórios
-sudo mkdir -p /opt/nomad/volumes/keycloak_data
 sudo mkdir -p /opt/nomad/volumes/ollama_data
 
 # 3. Reiniciar Nomad
@@ -127,7 +121,6 @@ nomad node status -self
 # Se for servidor remoto: export NOMAD_ADDR=http://seu-servidor:4646
 
 export NOMAD_ADDR=http://localhost:4646
-nomad job run nomad/keycloak.nomad
 nomad job run nomad/ollama.nomad
 ```
 
@@ -152,7 +145,6 @@ Para fazer deploy manual de um serviço específico:
 
 ```bash
 export NOMAD_ADDR=http://localhost:4646
-nomad job run nomad/keycloak.nomad
 nomad job run nomad/ollama.nomad
 ```
 
@@ -171,7 +163,6 @@ Certifique-se de configurar no `.env`:
   - `POSTGRES_DB`: Nome do banco de dados
   - `POSTGRES_USER`: Usuário do banco
   - `POSTGRES_PASSWORD`: Senha do banco
-- `KEYCLOAK_HOST`: Host do Keycloak (use `localhost` se estiver no mesmo servidor)
 - `API_URL`: URL da API para o frontend (ex: `http://localhost:8080/api`)
 
 ## Troubleshooting Rápido
@@ -184,11 +175,6 @@ Certifique-se de configurar no `.env`:
    client {
      enabled = true
      
-     host_volume "keycloak_data" {
-       path      = "/opt/nomad/volumes/keycloak_data"
-       read_only = false
-     }
-     
      host_volume "ollama_data" {
        path      = "/opt/nomad/volumes/ollama_data"
        read_only = false
@@ -196,7 +182,7 @@ Certifique-se de configurar no `.env`:
    }
    
    # Criar diretórios e reiniciar
-   sudo mkdir -p /opt/nomad/volumes/{keycloak_data,ollama_data}
+   sudo mkdir -p /opt/nomad/volumes/ollama_data
    sudo systemctl restart nomad
    ```
 
