@@ -15,6 +15,11 @@ client {
   enabled = true
   
   # Habilitar plugin de volume host
+  host_volume "postgres_data" {
+    path      = "/opt/nomad/volumes/postgres_data"
+    read_only = false
+  }
+  
   host_volume "ollama_data" {
     path      = "/opt/nomad/volumes/ollama_data"
     read_only = false
