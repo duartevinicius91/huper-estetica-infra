@@ -18,6 +18,57 @@ jobs:
       - name: Checkout infrastructure repo
         uses: actions/checkout@v4
       
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+      
+      - name: Add VPS to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Configure firewall
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} bash << EOF
+            set -e
+            
+            # Install ufw if not already installed
+            if ! command -v ufw &> /dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y ufw
+            fi
+            
+            # Reset firewall rules (optional, comment out if you want to preserve existing rules)
+            # sudo ufw --force reset
+            
+            # Set default policies
+            sudo ufw default deny incoming
+            sudo ufw default allow outgoing
+            
+            # Allow SSH (important - do this first!)
+            sudo ufw allow 22/tcp
+            
+            # Allow HTTP
+            sudo ufw allow 80/tcp
+            
+            # Allow HTTPS
+            sudo ufw allow 443/tcp
+            
+            # Allow Nomad (default port 4646)
+            sudo ufw allow 4646/tcp
+            
+            # Allow PostgreSQL (default port 5432)
+            sudo ufw allow 5432/tcp
+            
+            # Enable firewall
+            echo "y" | sudo ufw enable
+            
+            # Show firewall status
+            sudo ufw status verbose
+            
+            echo "✅ Firewall configured successfully"
+          EOF
+      
       - name: Install Nomad CLI
         run: |
           wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
@@ -26,15 +77,12 @@ jobs:
       
       - name: Deploy Keycloak
         env:
-          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
-          KEYCLOAK_ADMIN_USERNAME: ${{ secrets.KEYCLOAK_ADMIN_USERNAME }}
-          KEYCLOAK_ADMIN_PASSWORD: ${{ secrets.KEYCLOAK_ADMIN_PASSWORD }}
+          KEYCLOAK_ADMIN_USERNAME: admin
+          KEYCLOAK_ADMIN_PASSWORD: admin
         run: |
-          nomad job run -address=$NOMAD_ADDR nomad/keycloak.nomad
+          nomad job run nomad/keycloak.nomad
       
       - name: Deploy Ollama
-        env:
-          NOMAD_ADDR: ${{ secrets.NOMAD_ADDR }}
         run: |
-          nomad job run -address=$NOMAD_ADDR nomad/ollama.nomad
+          nomad job run nomad/ollama.nomad
 
